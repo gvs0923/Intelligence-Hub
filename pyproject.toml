@@ -1,0 +1,48 @@
+[project]
+name = "intelligencehub"
+version = "0.1.0"
+description = "Engineering Intelligence Hub — a local RAG system for engineering knowledge"
+readme = "README.md"
+authors = [
+    { name = "Gudaru Venkata Sai Charan"}
+]
+requires-python = ">=3.11"
+dependencies = [
+    "alembic>=1.20.0",
+    "celery>=5.6.3",
+    "chromadb>=1.5.9",
+    "fastapi>=0.142.2",
+    "gitpython>=3.2.0",
+    "langchain-core>=1.6.6",
+    "langchain-text-splitters>=1.1.2",
+    "ollama>=0.6.3",
+    "pydantic-settings>=2.15.0",
+    "python-multipart>=0.0.32",
+    "rank-bm25>=0.2.2",
+    "redis>=8.1.0",
+    "sentence-transformers>=6.1.0",
+    "sqlalchemy>=2.1.2",
+    "streamlit>=1.64.0",
+    "structlog>=26.1.0",
+    "tree-sitter>=0.26.0",
+    "tree-sitter-javascript>=0.25.0",
+    "tree-sitter-python>=0.25.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "src"
+module-root = ""
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.16.10",
+]
