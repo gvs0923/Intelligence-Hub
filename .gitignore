@@ -26,5 +26,8 @@ docs/
 .ruff_cache/
 .pytest_cache/
 
+# Redis snapshot (created if redis-server runs with this dir as CWD)
+dump.rdb
+
 # OS files
 .DS_Store
