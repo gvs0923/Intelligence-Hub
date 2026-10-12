@@ -38,6 +38,11 @@ build-backend = "uv_build"
 module-name = "src"
 module-root = ""
 
+[tool.ruff.lint]
+# B008: FastAPI's `Depends(...)` is designed to be used as a default argument value;
+# this is the documented, required pattern for dependency injection, not a bug.
+ignore = ["B008"]
+
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",

@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.api.routes.ingest import router as ingest_router
 from src.config import get_settings
 from src.db.session import init_db
 from src.logging_config import configure_logging, get_logger
@@ -34,6 +35,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(ingest_router)
 
 @app.get("/health")
 async def health_check():
