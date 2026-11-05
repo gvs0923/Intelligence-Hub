@@ -5,6 +5,10 @@ from sqlalchemy import select
 
 from src.db.models import DataSource, IngestionJob
 from src.db.session import SessionLocal, init_db
+from src.indexing.bm25 import BM25Index
+from src.indexing.embedders import get_embedder
+from src.indexing.indexer import Indexer
+from src.indexing.vector_store import VectorStore
 from src.ingestion.pipeline import IngestionPipeline
 from src.ingestion.registry import get_chunker, get_ingester
 
@@ -34,6 +38,7 @@ def ingest_source(db, name: str, source_type: str, location: str):
         get_ingester(source_type),
         get_chunker(source_type),
         db,
+        indexer=Indexer(get_embedder(), VectorStore(), BM25Index()),
     )
     pipeline.run(job)
 
