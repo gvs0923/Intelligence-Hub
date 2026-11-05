@@ -72,6 +72,7 @@ class CodeChunker(BaseChunker):
 
     def __init__(self):
         self.max_lines = get_settings().max_code_chunk_lines
+        self._parsers: dict[str, Parser] = {}
 
     def chunk(self, document: Document) -> list[Chunk]:
         ext = document.metadata.get("extension", "").lower()
@@ -80,9 +81,12 @@ class CodeChunker(BaseChunker):
             return self._fallback_lines(document)
 
         language, def_types = lang
-        parser = Parser(language)
+        parser = self._parsers.get(ext)
+        if parser is None:
+            parser = self._parsers[ext] = Parser(language)
         source = document.content.encode("utf-8")
         tree = parser.parse(source)
+        lines = document.content.splitlines()
 
         if tree.root_node.has_error:
             return self._fallback_lines(document)
@@ -101,11 +105,15 @@ class CodeChunker(BaseChunker):
                         chunk_index=len(chunks),
                         metadata={**document.metadata, "symbol": symbol},
                     ))
-                covered_lines.update(range(node.start_point.row, node.end_point.row + 1))
+                total = len(lines)
+                covered_lines.update(range(
+                    min(node.start_point.row, total),
+                    min(node.end_point.row + 1, total),
+                ))
 
         # code outside defs (imports, constants, module-level statements)
         leftovers = [
-            line for i, line in enumerate(document.content.splitlines())
+            line for i, line in enumerate(lines)
             if i not in covered_lines
         ]
         if any(l.strip() for l in leftovers):

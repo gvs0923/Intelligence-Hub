@@ -48,6 +48,8 @@ def main():
     parser.add_argument("--docs", required=True, type=Path)
     parser.add_argument("--incidents", required=True, type=Path)
     parser.add_argument("--repo", required=True)
+    parser.add_argument("--code", type=Path, default=None,
+                         help="Path to code repository to ingest as code sourse")
     args = parser.parse_args()
 
     docs = args.docs.expanduser().resolve()
@@ -58,11 +60,17 @@ def main():
     if not incidents.is_file():
         parser.error("--incidents must point to a JSON or CSV file")
 
+    code = args.code.expanduser().resolve() if args.code else None
+    if code is not None and not code.is_dir():
+        parser.error("--code must point to a directory")
+
     init_db()
     with SessionLocal() as db:
         ingest_source(db, "demo-docs", "markdown", str(docs))
         ingest_source(db, "demo-incidents", "incident", str(incidents))
         ingest_source(db, "demo-repository", "git", args.repo)
+        if code is not None:
+            ingest_source(db, "demo-java-client", "code", str(code))
 
 
 if __name__ == "__main__":

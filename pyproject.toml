@@ -24,7 +24,7 @@ dependencies = [
     "sqlalchemy>=2.1.2",
     "streamlit>=1.64.0",
     "structlog>=26.1.0",
-    "tree-sitter>=0.26.0",
+    "tree-sitter>=0.25.0,<0.26",
     "tree-sitter-java==0.23.5",
     "tree-sitter-javascript>=0.25.0",
     "tree-sitter-python>=0.25.0",
@@ -39,6 +39,10 @@ build-backend = "uv_build"
 [tool.uv.build-backend]
 module-name = "src"
 module-root = ""
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["data", ".*", "*.egg*", "build", "dist"]
 
 [tool.ruff.lint]
 # B008: FastAPI's `Depends(...)` is designed to be used as a default argument value;
