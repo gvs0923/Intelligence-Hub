@@ -65,6 +65,8 @@ class IngestionPipeline:
                         document_id=row.id,
                         chunk_index=i,
                         vector_id=f"doc{row.id}-chunk{i}",
+                        text=chunk.content,
+                        chunk_metadata=chunk.metadata,
                     ))
                 stats["chunks"] += len(chunks)
 

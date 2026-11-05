@@ -56,3 +56,13 @@ def test_bad_location_fails_job_without_crashing(db_session, data_source):
 
     assert job.status == "failed"
     assert job.error_message is not None
+
+def test_chunk_text_and_metadata_survive_save_and_reload(db_session, data_source, tmp_path):
+    (tmp_path / "a.md").write_text("# Title\n\nSome body text.")
+    _run(db_session, data_source)
+
+    db_session.expunge_all()  # force reload from DB, not session cache
+    row = db_session.query(ChunkRow).one()
+
+    assert "Some body text." in row.text
+    assert isinstance(row.chunk_metadata, dict)
