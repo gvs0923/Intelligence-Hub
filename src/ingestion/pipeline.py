@@ -72,6 +72,7 @@ class IngestionPipeline:
             log.info("ingestion_complete", job_id=job.id, **stats)
 
         except Exception as exc:  # noqa: BLE001 - any failure here must mark the job failed, not crash it
+            self.session.rollback()
             job.status = "failed"
             job.error_message = str(exc)
             log.error("ingestion_failed", job_id=job.id, error=str(exc))

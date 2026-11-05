@@ -1,8 +1,8 @@
 from src.db.models import Chunk as ChunkRow
 from src.db.models import Document as DocumentRow
 from src.db.models import IngestionJob
-from src.ingestion.markdown import MarkdownIngester
 from src.ingestion.chunkers.markdown import MarkdownChunker
+from src.ingestion.markdown import MarkdownIngester
 from src.ingestion.pipeline import IngestionPipeline
 
 

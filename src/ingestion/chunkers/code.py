@@ -1,5 +1,7 @@
+import tree_sitter_java
 import tree_sitter_javascript
 import tree_sitter_python
+import tree_sitter_typescript
 from tree_sitter import Language, Parser
 
 from src.config import get_settings
@@ -19,6 +21,51 @@ LANGUAGES: dict[str, tuple[Language, set[str]]] = {
     ),
 }
 
+JS_DEFINITIONS = LANGUAGES[".js"][1] | {
+    "lexical_declaration",
+    "variable_declaration",
+}
+
+LANGUAGES[".js"] = (
+    Language(tree_sitter_javascript.language()),
+    JS_DEFINITIONS,
+)
+
+LANGUAGES.update({
+    ".jsx": (
+        Language(tree_sitter_javascript.language()),
+        JS_DEFINITIONS,
+    ),
+    ".ts": (
+        Language(tree_sitter_typescript.language_typescript()),
+        JS_DEFINITIONS | {
+            "interface_declaration",
+            "type_alias_declaration",
+            "enum_declaration",
+            "abstract_class_declaration",
+        },
+    ),
+    ".tsx": (
+        Language(tree_sitter_typescript.language_tsx()),
+        JS_DEFINITIONS | {
+            "interface_declaration",
+            "type_alias_declaration",
+            "enum_declaration",
+            "abstract_class_declaration",
+        },
+    ),
+    ".java": (
+        Language(tree_sitter_java.language()),
+        {
+            "class_declaration",
+            "interface_declaration",
+            "enum_declaration",
+            "record_declaration",
+            "annotation_type_declaration",
+        },
+    ),
+})
+
 
 class CodeChunker(BaseChunker):
     """AST-aware chunker: splits on function/class boundaries via tree-sitter."""
@@ -27,7 +74,7 @@ class CodeChunker(BaseChunker):
         self.max_lines = get_settings().max_code_chunk_lines
 
     def chunk(self, document: Document) -> list[Chunk]:
-        ext = document.metadata.get("extension", "")
+        ext = document.metadata.get("extension", "").lower()
         lang = LANGUAGES.get(ext)
         if lang is None:
             return self._fallback_lines(document)
@@ -36,6 +83,9 @@ class CodeChunker(BaseChunker):
         parser = Parser(language)
         source = document.content.encode("utf-8")
         tree = parser.parse(source)
+
+        if tree.root_node.has_error:
+            return self._fallback_lines(document)
 
         chunks: list[Chunk] = []
         covered_lines: set[int] = set()
@@ -71,11 +121,23 @@ class CodeChunker(BaseChunker):
         return chunks
 
     def _node_name(self, node, source: bytes) -> str:
-        name_node = node.child_by_field_name("name") or (
-            node.children[0].child_by_field_name("name")
-            if node.type == "decorated_definition" else None
-        )
-        return source[name_node.start_byte:name_node.end_byte].decode() if name_node else "<anonymous>"
+        name_node = node.child_by_field_name("name")
+        if name_node is not None:
+            return source[name_node.start_byte:name_node.end_byte].decode("utf-8")
+
+        wrapper_types = {
+            "decorated_definition",
+            "export_statement",
+            "lexical_declaration",
+            "variable_declaration",
+        }
+        if node.type in wrapper_types:
+            for child in node.named_children:
+                name = self._node_name(child, source)
+                if name != "<anonymous>":
+                    return name
+
+        return "<anonymous>"
 
     def _subdivide(self, text: str) -> list[str]:
         """Split overlong definitions at max_lines boundaries."""

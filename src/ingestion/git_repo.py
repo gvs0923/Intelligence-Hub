@@ -3,10 +3,15 @@ from pathlib import Path
 from git import Repo
 
 from src.ingestion.base import BaseIngester
+from src.ingestion.code import CodeIngester
+from src.ingestion.hashing import content_hash
 from src.ingestion.local import _iter_files
 from src.ingestion.models import Document
 
-TEXT_EXTENSIONS = {".md", ".py", ".js", ".ts", ".txt", ".toml", ".yaml", ".yml", ".json"}
+TEXT_EXTENSIONS = CodeIngester.extensions | {
+    ".md", ".markdown", ".mdx", ".txt",
+    ".toml", ".yaml", ".yml", ".json",
+}
 
 
 class GitRepoIngester(BaseIngester):
@@ -23,15 +28,20 @@ class GitRepoIngester(BaseIngester):
         documents = []
         for path in _iter_files(repo_path, TEXT_EXTENSIONS):
             rel = path.relative_to(repo_path)
+            extension = path.suffix.lower()
             documents.append(
                 Document(
                     content=path.read_text(encoding="utf-8", errors="replace"),
-                    source_type="code" if path.suffix in {".py", ".js", ".ts"} else "markdown",
+                    source_type=(
+                        "code" if extension in CodeIngester.extensions else "markdown"
+                    ),
                     source_path=f"{source}::{rel}",
                     metadata={
                         "repo_url": source,
                         "relative_path": str(rel),
                         "commit_sha": commit_sha,
+                        "filename": rel.name,
+                        "extension": extension,
                     },
                 )
             )
@@ -39,7 +49,7 @@ class GitRepoIngester(BaseIngester):
 
     def _local_path(self, url: str) -> Path:
         name = url.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git")
-        return self.local_root / name
+        return self.local_root / f"{name}-{content_hash(url)[:12]}"
 
     def _clone_or_pull(self, url: str, path: Path) -> Repo:
         if (path / ".git").exists():
