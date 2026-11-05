@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import JSON, ForeignKey, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -38,6 +38,9 @@ class Chunk(Base):
     document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"))
     chunk_index: Mapped[int]
     vector_id: Mapped[str]
+    text: Mapped[str] = mapped_column(default="")
+    chunk_metadata: Mapped[dict] = mapped_column(JSON, default=dict)
+
 
     document: Mapped["Document"] = relationship(back_populates="chunks")
 
