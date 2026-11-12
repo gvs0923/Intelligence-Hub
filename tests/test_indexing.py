@@ -30,6 +30,30 @@ def test_index_and_query(tmp_path):
     assert indexer.bm25.query("evicted", 1)[0][0] == "c1"
 
 
+def test_bm25_load_restores_query_results(tmp_path):
+    from src.indexing.bm25 import BM25Index
+
+    path = str(tmp_path / "bm25.pkl")
+    original = BM25Index(path)
+    original.build(
+        ["c1", "c2", "c3"],
+        ["pod evicted memory", "dns resolution failed", "authentication deploy broken"],
+    )
+    restored = BM25Index(path)
+    assert restored.query("evicted", 3) == []
+    assert restored.load() is True
+    assert restored.query("EVICTED", 3) == original.query("evicted", 3)
+    assert restored.query("evicted", 1)[0][0] == "c1"
+
+
+def test_bm25_load_missing_file(tmp_path):
+    from src.indexing.bm25 import BM25Index
+
+    index = BM25Index(str(tmp_path / "missing.pkl"))
+    assert index.load() is False
+    assert index.query("evicted", 3) == []
+
+
 def test_dimension_mismatch_raises(tmp_path):
     from src.indexing.bm25 import BM25Index
     from src.indexing.vector_store import VectorStore

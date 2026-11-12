@@ -31,6 +31,21 @@ class BM25Index:
             pickle.dump({"ids": self._ids, "texts": texts}, f)
         log.info("bm25_built", chunks=len(ids), path=str(self._path))
 
+    def load(self) -> bool:
+        """Rebuild the in-memory index from the pickled corpus.
+
+        Returns False if no index file exists yet.
+        """
+        if not self._path.exists():
+            log.warning("bm25_index_missing", path=str(self._path))
+            return False
+        with open(self._path, "rb") as f:
+            data = pickle.load(f)
+        self._ids = data["ids"]
+        self._bm25 = BM25Okapi([_tokenize(t) for t in data["texts"]])
+        log.info("bm25_loaded", chunks=len(self._ids))
+        return True
+
     def query(self, query: str, top_k: int) -> list[tuple[str, float]]:
         if self._bm25 is None:
             return []
