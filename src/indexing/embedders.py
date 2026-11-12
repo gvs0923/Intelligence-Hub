@@ -12,7 +12,7 @@ def get_embedder() -> BaseEmbedder:
     try:
         embedder.embed(["health check"])  # one cheap call validates connectivity
         return embedder
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — connectivity probe: any failure means fall back
         log.warning("ollama_unavailable_falling_back", error=str(exc))
         from src.indexing.fallback import SentenceTransformerEmbedder
         return SentenceTransformerEmbedder()
