@@ -71,3 +71,14 @@ def test_dimension_mismatch_raises(tmp_path):
     bad = Indexer(DifferentDim(), store, BM25Index(str(tmp_path / "bm2.pkl")))
     with pytest.raises(RuntimeError, match="dim mismatch"):
         bad.index_chunks(["c2"], ["other"], [{}])
+
+
+def test_bm25_refresh_picks_up_rebuild_from_another_instance(tmp_path):
+    from src.indexing.bm25 import BM25Index
+
+    path = str(tmp_path / "bm25.pkl")
+    reader = BM25Index(path)
+    assert reader.query("evicted", 1) == []
+    BM25Index(path).build(["a"], ["pods evicted memory"])
+    reader.refresh()
+    assert reader.query("evicted", 1)[0][0] == "a"

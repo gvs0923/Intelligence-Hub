@@ -8,6 +8,7 @@ class SourceOut(BaseModel):
     vector_id: str
     path: str
     snippet: str      # first ~200 chars of the cited chunk
+    score: float | None = None  # streaming end point
 
 
 class QueryResponse(BaseModel):

@@ -1,0 +1,18 @@
+.block-container {
+    padding-top: 2rem;
+    max-width: 1200px;
+}
+
+[data-testid="stChatMessage"] {
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+}
+
+[data-testid="stExpander"] summary p {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+}
+
+[data-testid="stMetricValue"] {
+    font-size: 1.6rem;
+}

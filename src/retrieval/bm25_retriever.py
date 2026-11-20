@@ -15,6 +15,7 @@ class BM25Retriever:
         self.bm25 = bm25
 
     def retrieve(self, query: str, top_k: int) -> list[RetrievalResult]:
+        self.bm25.refresh()
         scored = self.bm25.query(query, top_k)  # [(vector_id, score)]
         if not scored:
             return []
@@ -30,7 +31,7 @@ class BM25Retriever:
             RetrievalResult(
                 content=chunks[vid].text,
                 score=score,
-                metadata={"vector_id": vid},
+                metadata={**chunks[vid].chunk_metadata, "vector_id": vid},
             )
             for vid, score in scored
             if vid in chunks
