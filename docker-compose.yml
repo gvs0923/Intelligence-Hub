@@ -1,21 +1,37 @@
-# docker-compose.yml
+x-backend: &backend
+  build: .
+  environment:
+    - OLLAMA_BASE_URL=http://ollama:11434
+    - REDIS_URL=redis://redis:6379/0
+    - CHROMA_PERSIST_DIR=/app/data/chroma
+    - SQLITE_DB_PATH=/app/data/metadata.db
+  volumes:
+    - ./data:/app/data
+  depends_on:
+    ollama:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
 services:
   app:
-    build: .
+    <<: *backend
     ports:
       - "8000:8000"
+
+  worker:
+    <<: *backend
+    command: ["uv", "run", "celery", "-A", "src.tasks.celery_app:celery_app", "worker", "--loglevel=info", "--concurrency=1"]
+
+  ui:
+    build: .
+    command: ["uv", "run", "streamlit", "run", "src/ui/app.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true"]
+    ports:
+      - "8501:8501"
     environment:
-      - OLLAMA_BASE_URL=http://ollama:11434
-      - REDIS_URL=redis://redis:6379/0
-      - CHROMA_PERSIST_DIR=/app/data/chroma
-      - SQLITE_DB_PATH=/app/data/metadata.db
-    volumes:
-      - ./data:/app/data
+      - API_URL=http://app:8000
     depends_on:
-      ollama:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - app
 
   ollama:
     image: ollama/ollama:latest
@@ -24,7 +40,7 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434"]
+      test: ["CMD", "ollama", "list"]
       interval: 10s
       timeout: 5s
       retries: 5

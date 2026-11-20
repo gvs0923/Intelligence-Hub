@@ -76,18 +76,19 @@ class IngestionPipeline:
                 chunks = self.chunker.chunk(doc)
                 for i, chunk in enumerate(chunks):
                     vector_id = f"doc{row.id}-chunk{i}"
+                    index_meta = {
+                        "document_id": row.id,
+                        "source_path": doc.source_path,
+                        "source_type": doc.source_type,
+                    }
                     self.session.add(ChunkRow(
                         document_id=row.id,
                         chunk_index=i,
                         vector_id=vector_id,
                         text=chunk.content,
-                        chunk_metadata=chunk.metadata,
+                        chunk_metadata={**chunk.metadata, **index_meta},
                     ))
-                    pending.append((vector_id, chunk.content, {
-                        "document_id": row.id,
-                        "source_path": doc.source_path,
-                        "source_type": doc.source_type,
-                    }))
+                    pending.append((vector_id, chunk.content, index_meta))
                 stats["chunks"] += len(chunks)
 
             if self.indexer:
