@@ -4,15 +4,33 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.db.models import Chunk as ChunkRow
+from src.db.models import DataSource, IngestionJob
 from src.db.models import Document as DocumentRow
-from src.db.models import IngestionJob
 from src.indexing.indexer import Indexer
 from src.ingestion.base import BaseIngester
 from src.ingestion.chunkers.base import BaseChunker
 from src.ingestion.hashing import content_hash
+from src.ingestion.models import Document
 from src.logging_config import get_logger
 
 log = get_logger(__name__)
+
+_LANGUAGES = {
+    ".py": "python", ".js": "javascript", ".jsx": "javascript",
+    ".ts": "typescript", ".tsx": "typescript", ".java": "java",
+}
+
+
+def _index_metadata(document_id: int, doc: Document, data_source: DataSource) -> dict:
+    meta = {
+        "document_id": document_id,
+        "source_path": doc.source_path,
+        "source_type": doc.source_type,
+        "repository": data_source.name if data_source.source_type in ("git", "code") else None,
+        "language": _LANGUAGES.get(str(doc.metadata.get("extension", "")).lower()),
+        "severity": doc.metadata.get("severity"),
+    }
+    return {k: v for k, v in meta.items() if v is not None}
 
 
 class IngestionPipeline:
@@ -30,7 +48,7 @@ class IngestionPipeline:
         self.session = session
         self.indexer = indexer
 
-    def run(self, job: IngestionJob) -> IngestionJob:
+    def run(self, job: IngestionJob, force: bool = False) -> IngestionJob:
         job.status = "running"
         job.started_at = datetime.now(UTC)
         self.session.commit()
@@ -53,7 +71,7 @@ class IngestionPipeline:
             for doc in documents:
                 digest = content_hash(doc.content)
                 row = existing.get(doc.source_path)
-                if row and row.content_hash == digest:
+                if row and row.content_hash == digest and not force:
                     stats["skipped"] += 1
                     continue
 
@@ -76,11 +94,7 @@ class IngestionPipeline:
                 chunks = self.chunker.chunk(doc)
                 for i, chunk in enumerate(chunks):
                     vector_id = f"doc{row.id}-chunk{i}"
-                    index_meta = {
-                        "document_id": row.id,
-                        "source_path": doc.source_path,
-                        "source_type": doc.source_type,
-                    }
+                    index_meta = _index_metadata(row.id, doc, data_source)
                     self.session.add(ChunkRow(
                         document_id=row.id,
                         chunk_index=i,

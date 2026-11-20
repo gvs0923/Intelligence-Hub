@@ -58,16 +58,21 @@ class HubClient:
 
     def ingest(self, name: str, source_type: str, location: str) -> dict:
         body = {"name": name, "source_type": source_type, "location": location}
-        return self._send("POST", "/ingest", json=body).json()
+        return self._send("POST", "/api/ingest", json=body).json()
 
-    def refresh_source(self, source_id: int) -> dict:
-        return self._send("POST", f"/ingest/sources/{source_id}/refresh").json()
+    def refresh_source(self, source_id: int, force: bool = False) -> dict:
+        return self._send(
+            "POST", f"/api/ingest/sources/{source_id}/refresh", params={"force": force}
+        ).json()
 
     def job_status(self, job_id: int) -> dict:
-        return self._send("GET", f"/ingest/{job_id}").json()
+        return self._send("GET", f"/api/ingest/{job_id}").json()
 
     def query(self, payload: dict) -> dict:
         return self._send("POST", "/api/query", json=payload).json()
+
+    def query_log(self, hours: int = 24) -> list[dict]:
+        return self._send("GET", "/api/analytics/queries", params={"hours": hours}).json()
 
     def stream_query(self, payload: dict) -> Iterator[tuple[str, Any]]:
         try:

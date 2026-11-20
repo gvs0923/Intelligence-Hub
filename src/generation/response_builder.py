@@ -14,6 +14,7 @@ class Source(BaseModel):
     vector_id: str
     path: str
     text: str
+    score: float | None = None
 
 
 class GenerationResponse(BaseModel):
@@ -41,6 +42,7 @@ def build_response(answer: str, results: list[RetrievalResult]) -> GenerationRes
                 vector_id=r.metadata.get("vector_id", ""),
                 path=r.metadata.get("source_path", r.metadata.get("vector_id", "unknown")),
                 text=r.content,
+                score=r.score,
             )
         )
 

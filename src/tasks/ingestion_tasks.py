@@ -10,7 +10,7 @@ from src.tasks.celery_app import celery_app
 
 
 @celery_app.task(name="run_ingestion")
-def run_ingestion(job_id: int) -> str:
+def run_ingestion(job_id: int, force: bool = False) -> str:
     db = SessionLocal()
     try:
         job = db.get(IngestionJob, job_id)
@@ -21,7 +21,7 @@ def run_ingestion(job_id: int) -> str:
             chunker=get_chunker(data_source.source_type),
             session=db,
         )
-        pipeline.run(job)
+        pipeline.run(job, force=force)
         return job.status
     finally:
         db.close()

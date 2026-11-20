@@ -55,3 +55,18 @@ class IngestionJob(Base):
     error_message: Mapped[str | None] = mapped_column(nullable=True)
 
     data_source: Mapped["DataSource"] = relationship(back_populates="jobs")
+
+
+class QueryLog(Base):
+    __tablename__ = "query_logs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, index=True)
+    session_id: Mapped[str] = mapped_column(String(64))
+    endpoint: Mapped[str] = mapped_column(String(16))   # query | stream
+    query: Mapped[str]
+    source_type: Mapped[str | None]
+    latency_s: Mapped[float]
+    refused: Mapped[bool]
+    confidence: Mapped[str] = mapped_column(String(16))
+    retrieval_confidence: Mapped[float]
+    sources_cited: Mapped[int]

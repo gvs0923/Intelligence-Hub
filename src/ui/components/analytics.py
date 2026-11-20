@@ -21,6 +21,8 @@ def render_analytics(client: HubClient) -> None:
     st.divider()
     _server_metrics(client)
     st.divider()
+    _persisted_metrics(client)
+    st.divider()
     _session_metrics()
 
 
@@ -75,14 +77,31 @@ def _server_metrics(client: HubClient) -> None:
     )
 
 
+def _persisted_metrics(client: HubClient) -> None:
+    st.subheader("All queries (last 24 h, stored in SQLite)")
+    try:
+        rows = client.query_log(hours=24)
+    except APIError as exc:
+        st.error(str(exc))
+        return
+    if not rows:
+        st.info("No queries recorded in the last 24 hours.")
+        return
+    df = pd.DataFrame(rows)
+    df["time"] = pd.to_datetime(df["time"])
+    _query_charts(df)
+
+
 def _session_metrics() -> None:
     st.subheader("This browser session")
     log = st.session_state.query_log
     if not log:
         st.info("Ask something on the Chat page to populate these charts.")
         return
+    _query_charts(pd.DataFrame(log))
 
-    df = pd.DataFrame(log)
+
+def _query_charts(df: pd.DataFrame) -> None:
     a, b, c, d = st.columns(4)
     a.metric("Queries", len(df))
     b.metric("Avg latency", f"{df['latency_s'].mean():.1f}s")
