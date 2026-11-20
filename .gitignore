@@ -16,7 +16,7 @@ wheels/
 data/
 
 # Plan / scratch files
-plan-*.md
+*.md
 
 # Docs (phase notes kept locally)
 docs/
