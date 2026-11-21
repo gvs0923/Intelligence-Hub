@@ -2,35 +2,26 @@ from fastapi import APIRouter, Depends, HTTPException
 from kombu.exceptions import OperationalError
 from pydantic import BaseModel
 
+from src.api.deps import get_db
 from src.db.models import DataSource, IngestionJob
-from src.db.session import SessionLocal
 from src.ingestion.registry import INGESTERS
 from src.tasks.ingestion_tasks import run_ingestion
 
-router = APIRouter(prefix="/ingest", tags=["ingestion"])
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
+router = APIRouter(prefix="/api/ingest", tags=["ingestion"])
 
 class IngestRequest(BaseModel):
     name: str
     source_type: str          # "git" | "markdown" | "code"
     location: str             # repo URL or local directory path
 
-def enqueue_ingestion(data_source: DataSource, db):
+def enqueue_ingestion(data_source: DataSource, db, force: bool = False):
     job = IngestionJob(data_source_id=data_source.id)
     db.add(job)
     db.commit()
     db.refresh(job)
 
     try:
-        run_ingestion.delay(job.id)
+        run_ingestion.delay(job.id, force=force)
     except OperationalError as exc:
         job.status = "failed"
         job.error_message = "Could not publish ingestion task"
@@ -75,7 +66,7 @@ def job_status(job_id: int, db=Depends(get_db)):
     }
 
 @router.post("/sources/{source_id}/refresh", status_code=202)
-def refresh_source(source_id: int, db=Depends(get_db)):
+def refresh_source(source_id: int, force: bool = False, db=Depends(get_db)):
     data_source = db.get(DataSource, source_id)
     if data_source is None:
         raise HTTPException(404, "Data source not found")
@@ -86,4 +77,4 @@ def refresh_source(source_id: int, db=Depends(get_db)):
             f"Unknown source_type: {data_source.source_type}",
         )
 
-    return enqueue_ingestion(data_source, db)
+    return enqueue_ingestion(data_source, db, force=force)

@@ -1,9 +1,12 @@
+from collections.abc import Iterator
+
 from src.generation.guardrails import confidence_label, grounding_score
 from src.generation.llm_client import LLMClient
 from src.generation.memory import ConversationMemory
 from src.generation.prompt_templates import build_messages
 from src.generation.response_builder import GenerationResponse, build_response
 from src.logging_config import get_logger
+from src.retrieval.base import RetrievalResult
 from src.retrieval.filters import RetrievalFilters
 from src.retrieval.pipeline import RetrievalPipeline
 
@@ -36,20 +39,43 @@ class RAGGenerator:
         session_id: str = "default",
         filters: RetrievalFilters | None = None,
     ) -> RAGResponse:
+        results, conf, messages = self._retrieve(query, session_id, filters)
+        if messages is None:
+            return _refusal(conf)
+        return self._finish(query, session_id, self.llm.chat(messages), results, conf)
+
+    def ask_stream(
+        self,
+        query: str,
+        session_id: str = "default",
+        filters: RetrievalFilters | None = None,
+    ) -> Iterator[str | RAGResponse]:
+        """Yields answer text chunks (str), then exactly one RAGResponse as the last item."""
+        results, conf, messages = self._retrieve(query, session_id, filters)
+        if messages is None:
+            yield _REFUSAL
+            yield _refusal(conf)
+            return
+        parts: list[str] = []
+        for token in self.llm.chat_stream(messages):
+            parts.append(token)
+            yield token
+        yield self._finish(query, session_id, "".join(parts), results, conf)
+
+    def _retrieve(
+        self, query: str, session_id: str, filters: RetrievalFilters | None
+    ) -> tuple[list[RetrievalResult], float, list[dict] | None]:
         results, conf, confident = self.retriever.retrieve(query, filters)
 
         # Gate 1: retrieval confidence — don't even call the LLM
         if not confident or not results:
-            return RAGResponse(
-                answer=_REFUSAL,
-                sources=[],
-                refused=True,
-                confidence="none",
-                retrieval_confidence=conf,
-            )
+            return results, conf, None
+        return results, conf, build_messages(query, results, self.memory.get(session_id))
 
-        messages = build_messages(query, results, self.memory.get(session_id))
-        answer = self.llm.chat(messages)
+    def _finish(
+        self, query: str, session_id: str, answer: str,
+        results: list[RetrievalResult], conf: float,
+    ) -> RAGResponse:
         resp = build_response(answer, results)
 
         # Gate 2: grounding — did the answer stay inside the chunks?
@@ -73,3 +99,9 @@ class RAGGenerator:
             confidence=label,
             retrieval_confidence=conf,
         )
+
+
+def _refusal(conf: float) -> RAGResponse:
+    return RAGResponse(
+        answer=_REFUSAL, sources=[], refused=True, confidence="none", retrieval_confidence=conf
+    )

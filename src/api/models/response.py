@@ -37,6 +37,16 @@ class StatsResponse(BaseModel):
     index_drift: int                   # sqlite_chunks - chroma_vectors (should be 0)
 
 
+class QueryLogOut(BaseModel):
+    time: datetime
+    query: str
+    latency_s: float
+    confidence: str
+    sources: int
+    refused: bool
+    filter: str
+
+
 class HealthResponse(BaseModel):
     status: str                        # ok | degraded
     ollama: bool

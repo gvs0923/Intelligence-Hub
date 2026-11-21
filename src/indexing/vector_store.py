@@ -14,8 +14,10 @@ class VectorStore:
 
     def __init__(self, persist_dir: str | None = None):
         settings = get_settings()
-        path = persist_dir or settings.chroma_persist_dir
-        self._client = chromadb.PersistentClient(path=path)
+        if settings.chroma_host and persist_dir is None:
+            self._client = chromadb.HttpClient(host=settings.chroma_host, port=settings.chroma_port)
+        else:
+            self._client = chromadb.PersistentClient(path=persist_dir or settings.chroma_persist_dir)
         self._collection = self._client.get_or_create_collection(
             name=_COLLECTION,
             metadata={"hnsw:space": "cosine"},  # cosine similarity for text embeddings

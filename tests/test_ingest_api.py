@@ -28,7 +28,7 @@ def test_create_incident_source(db_session, monkeypatch):
     source = db_session.get(DataSource, result["data_source_id"])
     assert source.source_type == "incident"
     assert result["status"] == "queued"
-    publish.assert_called_once_with(result["job_id"])
+    publish.assert_called_once_with(result["job_id"], force=False)
 
 
 def test_refresh_reuses_source(db_session, data_source, monkeypatch):
