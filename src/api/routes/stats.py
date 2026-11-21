@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends
+from datetime import UTC, datetime, timedelta
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.api.deps import get_db
-from src.api.models.response import HealthResponse, StatsResponse
-from src.db.models import Chunk, DataSource, Document
+from src.api.models.response import HealthResponse, QueryLogOut, StatsResponse
+from src.db.models import Chunk, DataSource, Document, QueryLog
 from src.indexing.bm25 import BM25Index
 from src.indexing.vector_store import VectorStore
 from src.logging_config import get_logger
@@ -27,6 +29,28 @@ def stats(db: Session = Depends(get_db)):
         bm25_loaded=bm25_loaded,
         index_drift=sqlite_chunks - chroma_count,
     )
+
+
+@router.get("/analytics/queries", response_model=list[QueryLogOut])
+def query_history(
+    hours: int = Query(24, ge=1, le=720),
+    limit: int = Query(1000, ge=1, le=10_000),
+    db: Session = Depends(get_db),
+):
+    since = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=hours)  # created_at is naive UTC
+    rows = db.scalars(
+        select(QueryLog)
+        .where(QueryLog.created_at >= since)
+        .order_by(QueryLog.created_at.desc())
+        .limit(limit)
+    ).all()
+    return [
+        QueryLogOut(
+            time=r.created_at, query=r.query, latency_s=r.latency_s, confidence=r.confidence,
+            sources=r.sources_cited, refused=r.refused, filter=r.source_type or "all",
+        )
+        for r in reversed(rows)
+    ]
 
 
 @router.get("/health", response_model=HealthResponse)

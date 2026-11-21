@@ -35,6 +35,8 @@ class Settings(BaseSettings):
 
     # --- Storage paths ---
     chroma_persist_dir: str = "./data/chroma"
+    chroma_host: str | None = None
+    chroma_port: int = 8000
     bm25_index_path: str = "./data/bm25_index.pkl"
     sqlite_db_path: str = "./data/metadata.db"
 

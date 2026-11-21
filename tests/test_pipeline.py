@@ -1,7 +1,9 @@
 from src.db.models import Chunk as ChunkRow
+from src.db.models import DataSource, IngestionJob
 from src.db.models import Document as DocumentRow
-from src.db.models import IngestionJob
+from src.ingestion.chunkers.code import CodeChunker
 from src.ingestion.chunkers.markdown import MarkdownChunker
+from src.ingestion.code import CodeIngester
 from src.ingestion.markdown import MarkdownIngester
 from src.ingestion.pipeline import IngestionPipeline
 
@@ -10,11 +12,11 @@ def _make_pipeline(db_session):
     return IngestionPipeline(MarkdownIngester(), MarkdownChunker(), db_session)
 
 
-def _run(db_session, data_source):
+def _run(db_session, data_source, force=False):
     job = IngestionJob(data_source_id=data_source.id)
     db_session.add(job)
     db_session.flush()
-    return _make_pipeline(db_session).run(job)
+    return _make_pipeline(db_session).run(job, force=force)
 
 
 def test_first_run_creates_documents_and_chunks(db_session, data_source, tmp_path):
@@ -66,3 +68,34 @@ def test_chunk_text_and_metadata_survive_save_and_reload(db_session, data_source
 
     assert "Some body text." in row.text
     assert isinstance(row.chunk_metadata, dict)
+
+
+def test_chunks_carry_filter_metadata(db_session, tmp_path):
+    ds = DataSource(name="java-client", source_type="code", location=str(tmp_path))
+    db_session.add(ds)
+    db_session.flush()
+    (tmp_path / "A.java").write_text("public class A {}")
+    job = IngestionJob(data_source_id=ds.id)
+    db_session.add(job)
+    db_session.flush()
+
+    IngestionPipeline(CodeIngester(), CodeChunker(), db_session).run(job)
+
+    meta = db_session.query(ChunkRow).first().chunk_metadata
+    assert meta["repository"] == "java-client"
+    assert meta["language"] == "java"
+    assert "severity" not in meta
+
+
+def test_force_rewrites_unchanged_file(db_session, data_source, tmp_path):
+    (tmp_path / "a.md").write_text("# A\nhello")
+    _run(db_session, data_source)
+    db_session.query(ChunkRow).one().chunk_metadata = {}  # simulate a chunk written by old code
+    db_session.commit()
+
+    _run(db_session, data_source)
+    assert db_session.query(ChunkRow).one().chunk_metadata == {}  # same hash -> skipped
+
+    _run(db_session, data_source, force=True)
+    db_session.expunge_all()
+    assert db_session.query(ChunkRow).one().chunk_metadata["source_type"] == "markdown"

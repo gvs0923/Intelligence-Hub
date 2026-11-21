@@ -3,7 +3,8 @@ x-backend: &backend
   environment:
     - OLLAMA_BASE_URL=http://ollama:11434
     - REDIS_URL=redis://redis:6379/0
-    - CHROMA_PERSIST_DIR=/app/data/chroma
+    - CHROMA_HOST=chroma
+    - CHROMA_PORT=8000
     - SQLITE_DB_PATH=/app/data/metadata.db
   volumes:
     - ./data:/app/data
@@ -11,6 +12,8 @@ x-backend: &backend
     ollama:
       condition: service_healthy
     redis:
+      condition: service_healthy
+    chroma:
       condition: service_healthy
 
 services:
@@ -55,5 +58,18 @@ services:
       timeout: 3s
       retries: 5
 
+  chroma:
+    image: chromadb/chroma:1.5.9
+    volumes:
+      - chroma_data:/data
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   ollama_data:
+  chroma_data:
