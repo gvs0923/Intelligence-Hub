@@ -22,7 +22,7 @@ class OllamaEmbedder(BaseEmbedder):
         for i in range(0, len(texts), _EMBED_BATCH):
             batch = texts[i : i + _EMBED_BATCH]
             resp = self._client.embed(model=self._model, input=batch)
-            vectors.extend(resp.embeddings)
+            vectors.extend(list(vector) for vector in resp.embeddings)
         log.info("embedded_batch", model=self._model, count=len(texts))
         return vectors
 

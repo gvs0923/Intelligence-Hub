@@ -10,7 +10,7 @@ class IncidentChunker(BaseChunker):
 
     def chunk(self, document: Document) -> list[Chunk]:
         incident = IncidentRecord.model_validate_json(document.content)
-        chunks = []
+        chunks: list[Chunk] = []
 
         for field in ("description", "root_cause", "resolution"):
             text = getattr(incident, field)

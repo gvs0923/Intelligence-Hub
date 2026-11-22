@@ -1,3 +1,7 @@
+from collections.abc import Callable
+
+from src.ingestion.base import BaseIngester
+from src.ingestion.chunkers.base import BaseChunker
 from src.ingestion.chunkers.code import CodeChunker
 from src.ingestion.chunkers.incident import IncidentChunker
 from src.ingestion.chunkers.markdown import MarkdownChunker
@@ -8,14 +12,14 @@ from src.ingestion.git_repo import GitRepoIngester
 from src.ingestion.incident import IncidentIngester
 from src.ingestion.markdown import MarkdownIngester
 
-INGESTERS = {
+INGESTERS: dict[str, Callable[[], BaseIngester]] = {
     "git": GitRepoIngester,
     "markdown": MarkdownIngester,
     "code": CodeIngester,
     "incident": IncidentIngester,
 }
 
-CHUNKERS = {
+CHUNKERS: dict[str, Callable[[], BaseChunker]] = {
     "git": MixedChunker,
     "markdown": MarkdownChunker,
     "code": CodeChunker,

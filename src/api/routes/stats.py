@@ -18,13 +18,13 @@ router = APIRouter(prefix="/api", tags=["system"])
 
 @router.get("/stats", response_model=StatsResponse)
 def stats(db: Session = Depends(get_db)):
-    sqlite_chunks = db.scalar(select(func.count()).select_from(Chunk))
+    sqlite_chunks = db.execute(select(func.count()).select_from(Chunk)).scalar_one()
     chroma_count = VectorStore().count()
     bm25_loaded = BM25Index().load()  # loads corpus into memory as a side effect
     return StatsResponse(
         total_chunks=sqlite_chunks,
-        total_documents=db.scalar(select(func.count()).select_from(Document)),
-        total_sources=db.scalar(select(func.count()).select_from(DataSource)),
+        total_documents=db.execute(select(func.count()).select_from(Document)).scalar_one(),
+        total_sources=db.execute(select(func.count()).select_from(DataSource)).scalar_one(),
         chroma_vectors=chroma_count,
         bm25_loaded=bm25_loaded,
         index_drift=sqlite_chunks - chroma_count,

@@ -2,6 +2,7 @@ import logging
 import sys
 
 import structlog
+from structlog.typing import Processor
 
 from src.config import get_settings
 
@@ -17,7 +18,7 @@ def configure_logging() -> None:
         level=settings.log_level,
     )
 
-    shared_processors = [
+    shared_processors: list[Processor] = [
         structlog.contextvars.merge_contextvars,   # pull in request-scoped context
         structlog.processors.add_log_level,         # adds "level": "info"
         structlog.processors.TimeStamper(fmt="iso"),  # adds ISO timestamp
@@ -25,6 +26,7 @@ def configure_logging() -> None:
         structlog.processors.format_exc_info,       # nicely format exceptions
     ]
 
+    renderer: Processor
     if settings.environment == "development":
         # Pretty, colored, human-readable output for local dev
         renderer = structlog.dev.ConsoleRenderer()

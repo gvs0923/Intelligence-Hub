@@ -45,3 +45,8 @@ app.include_router(ingest_router)
 @app.get("/metrics", include_in_schema=False)
 def metrics():
     return metrics_response()
+
+
+@app.get("/api/live", include_in_schema=False)
+def live() -> dict[str, str]:
+    return {"status": "alive"}
