@@ -27,8 +27,9 @@ class LLMClient:
             messages=messages,
             options={"temperature": temperature},
         )
-        log.info("llm_response", model=self._model, chars=len(resp.message.content))
-        return resp.message.content
+        content = resp.message.content or ""
+        log.info("llm_response", model=self._model, chars=len(content))
+        return content
 
     def chat_stream(self, messages: list[dict], temperature: float = 0.1) -> Iterator[str]:
         stream = self._client.chat(
@@ -38,4 +39,5 @@ class LLMClient:
             stream=True,
         )
         for chunk in stream:
-            yield chunk.message.content
+            if chunk.message.content:
+                yield chunk.message.content

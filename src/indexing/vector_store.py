@@ -1,4 +1,8 @@
+from collections.abc import Sequence
+from typing import cast
+
 import chromadb
+from chromadb.api.types import Metadata
 
 from src.config import get_settings
 from src.logging_config import get_logger
@@ -25,7 +29,8 @@ class VectorStore:
 
     @property
     def dimension(self) -> int | None:
-        return self._collection.metadata.get("embedding_dim")
+        value = (self._collection.metadata or {}).get("embedding_dim")
+        return value if isinstance(value, int) else None
 
     def set_dimension(self, dim: int) -> None:
         metadata = {
@@ -36,10 +41,11 @@ class VectorStore:
         self._collection.modify(metadata={**metadata, "embedding_dim": dim})
 
     def add(self, ids: list[str], embeddings: list[list[float]], metadatas: list[dict]) -> None:
+        vectors: list[Sequence[float]] = list(embeddings)
         self._collection.upsert(
             ids=ids,
-            embeddings=embeddings,
-            metadatas=[metadata or None for metadata in metadatas],
+            embeddings=vectors,
+            metadatas=[cast(Metadata, metadata or None) for metadata in metadatas],
         )
 
     def delete(self, ids: list[str]) -> None:
@@ -47,9 +53,10 @@ class VectorStore:
             self._collection.delete(ids=ids)
 
     def query(self, embedding: list[float], top_k: int, where: dict | None = None) -> dict:
-        return self._collection.query(
-            query_embeddings=[embedding], n_results=top_k, where=where
-        )
+        vectors: list[Sequence[float]] = [embedding]
+        return dict(self._collection.query(
+            query_embeddings=vectors, n_results=top_k, where=where
+        ))
 
     def count(self) -> int:
         return self._collection.count()

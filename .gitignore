@@ -16,15 +16,30 @@ wheels/
 data/
 
 # Plan / scratch files
-*.md
+# *.md
 
 # Docs (phase notes kept locally)
-/docs/
+# /docs/
 
 # Tool caches
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+/evaluation/reports/
+
+!README.md
+!AGENTS.md
+!/docs/
+/docs/*
+!/docs/architecture.md
+!/docs/evaluation.md
+!/docs/deployment.md
+!/docs/TESTING.md
+!/docs/phase-9-production-hardening.md
 
 # Redis snapshot (created if redis-server runs with this dir as CWD)
 dump.rdb

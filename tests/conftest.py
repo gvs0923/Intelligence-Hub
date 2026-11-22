@@ -1,8 +1,24 @@
+import os
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.db.models import Base, DataSource
+
+
+def pytest_sessionstart(session):
+    storage = TemporaryDirectory(prefix="intelligencehub-tests-")
+    session.config.add_cleanup(storage.cleanup)
+    root = Path(storage.name)
+    os.environ.update({
+        "SQLITE_DB_PATH": str(root / "metadata.db"),
+        "CHROMA_PERSIST_DIR": str(root / "chroma"),
+        "BM25_INDEX_PATH": str(root / "bm25.pkl"),
+        "CHROMA_HOST": "",
+    })
 
 
 @pytest.fixture

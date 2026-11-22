@@ -14,6 +14,8 @@ def run_ingestion(job_id: int, force: bool = False) -> str:
     db = SessionLocal()
     try:
         job = db.get(IngestionJob, job_id)
+        if job is None:
+            raise ValueError(f"Ingestion job {job_id} does not exist")
         data_source = job.data_source
         pipeline = IngestionPipeline(
             indexer=Indexer(get_embedder(), VectorStore(), BM25Index()),

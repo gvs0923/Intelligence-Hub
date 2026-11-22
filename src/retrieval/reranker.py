@@ -46,7 +46,7 @@ class LLMReranker:
                     last=len(candidates) - 1,
                 ),
             )
-            order = json.loads(resp.response.strip())
+            order = json.loads((resp.response or "").strip())
             if not _is_permutation(order, len(candidates)):
                 raise ValueError(f"bad permutation: {order}")
             return [candidates[i] for i in order]

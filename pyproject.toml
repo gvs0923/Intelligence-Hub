@@ -51,11 +51,27 @@ norecursedirs = ["data", ".*", "*.egg*", "build", "dist"]
 # this is the documented, required pattern for dependency injection, not a bug.
 ignore = ["B008"]
 
+[tool.coverage.run]
+source = ["src"]
+branch = true
+omit = ["src/ui/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 80
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+check_untyped_defs = true
+
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
     "mypy>=2.4.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "pytest-cov==6.0.0",
     "ruff>=0.16.10",
 ]

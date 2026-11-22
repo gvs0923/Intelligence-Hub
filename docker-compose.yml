@@ -1,75 +1,146 @@
-x-backend: &backend
-  build: .
-  environment:
-    - OLLAMA_BASE_URL=http://ollama:11434
-    - REDIS_URL=redis://redis:6379/0
-    - CHROMA_HOST=chroma
-    - CHROMA_PORT=8000
-    - SQLITE_DB_PATH=/app/data/metadata.db
-  volumes:
-    - ./data:/app/data
-  depends_on:
-    ollama:
-      condition: service_healthy
-    redis:
-      condition: service_healthy
-    chroma:
-      condition: service_healthy
+x-app-environment: &app-environment
+  ENVIRONMENT: production
+  OLLAMA_BASE_URL: http://ollama:11434
+  REDIS_URL: redis://redis:6379/0
+  CHROMA_HOST: chroma
+  CHROMA_PORT: 8000
+  CHROMA_PERSIST_DIR: /app/data/chroma
+  BM25_INDEX_PATH: /app/data/bm25_index.pkl
+  SQLITE_DB_PATH: /app/data/metadata.db
+  LLM_MODEL: ${LLM_MODEL:-llama3.2:3b}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+  CORS_ORIGINS: '["http://localhost:8501"]'
 
 services:
   app:
-    <<: *backend
+    build: .
+    image: intelligencehub:local
+    environment: *app-environment
     ports:
-      - "8000:8000"
-
-  worker:
-    <<: *backend
-    command: ["uv", "run", "celery", "-A", "src.tasks.celery_app:celery_app", "worker", "--loglevel=info", "--concurrency=1"]
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - app_data:/app/data
+    depends_on:
+      models:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      chroma:
+        condition: service_healthy
+    restart: unless-stopped
 
   ui:
     build: .
-    command: ["uv", "run", "streamlit", "run", "src/ui/app.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true"]
-    ports:
-      - "8501:8501"
+    image: intelligencehub:local
+    command: ["streamlit", "run", "src/ui/app.py", "--server.address=0.0.0.0", "--server.port=8501", "--browser.gatherUsageStats=false"]
     environment:
-      - API_URL=http://app:8000
+      API_URL: http://app:8000
+    ports:
+      - "127.0.0.1:8501:8501"
     depends_on:
-      - app
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  worker:
+    build: .
+    image: intelligencehub:local
+    command: ["celery", "-A", "src.tasks.celery_app:celery_app", "worker", "--loglevel=info", "--pool=solo", "--concurrency=1"]
+    environment: *app-environment
+    volumes:
+      - app_data:/app/data
+      - ./corpus:/app/corpus:ro
+    depends_on:
+      app:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  seed:
+    build: .
+    image: intelligencehub:local
+    profiles: ["tools"]
+    entrypoint: ["python", "-m", "scripts.seed_demo_data"]
+    command: ["--docs", "/app/corpus/docs", "--incidents", "/app/corpus/incidents.json", "--repo", "https://github.com/nolar/kopf", "--code", "/app/corpus/java"]
+    environment: *app-environment
+    volumes:
+      - app_data:/app/data
+      - ./corpus:/app/corpus:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: "no"
 
   ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.12.6}
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
     volumes:
       - ollama_data:/root/.ollama
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+
+  models:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.12.6}
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      LLM_MODEL: ${LLM_MODEL:-llama3.2:3b}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        ollama pull "$$EMBEDDING_MODEL"
+        ollama pull "$$LLM_MODEL"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+  chroma:
+    image: ${CHROMA_IMAGE:-chromadb/chroma:1.5.9}
+    command: ["run", "--path", "/data", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      ANONYMIZED_TELEMETRY: "False"
+    volumes:
+      - chroma_data:/data
+    healthcheck:
+      test: ["CMD", "bash", "-ec", "exec 3<>/dev/tcp/127.0.0.1/8000; printf 'GET /api/v2/heartbeat HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3; read -r response <&3; [[ \"$$response\" == *' 200 '* ]]"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    image: ${REDIS_IMAGE:-redis@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499}
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
-      retries: 5
-
-  chroma:
-    image: chromadb/chroma:1.5.9
-    volumes:
-      - chroma_data:/data
-    ports:
-      - "8001:8000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      retries: 10
+    restart: unless-stopped
 
 volumes:
+  app_data:
   ollama_data:
   chroma_data:
+  redis_data:
