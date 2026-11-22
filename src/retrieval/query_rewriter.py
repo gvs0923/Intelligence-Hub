@@ -32,7 +32,7 @@ class QueryRewriter:
             return query
         try:
             resp = self._client.generate(model=self._model, prompt=_PROMPT.format(query=query))
-            rewritten = resp.response.strip().strip('"')
+            rewritten = (resp.response or "").strip().strip('"')
             log.info("query_rewritten", original=query, rewritten=rewritten)
             return rewritten or query
         except Exception as exc:  # noqa: BLE001 — LLM call must never break retrieval; always fall back
