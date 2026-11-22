@@ -47,7 +47,7 @@ class RetrievalPipeline:
         )
 
     def retrieve(
-        self, query: str, filters: RetrievalFilters | None = None
+        self, query: str, filters: RetrievalFilters | None = None , top_k: int | None = None
     ) -> tuple[list[RetrievalResult], float, bool]:
         filters = filters or RetrievalFilters()
         rewritten = self.rewriter.rewrite(query) if self.rewriter else query
@@ -72,7 +72,7 @@ class RetrievalPipeline:
         if self.reranker:
             candidates = self.reranker.rerank(rewritten, candidates)
 
-        final = candidates[: self._s.top_k_final]
+        final = candidates[: top_k or self._s.top_k_final]
         conf = retrieval_confidence(fused)
         confident = is_confident(fused, self._s.min_confidence_threshold)
 
