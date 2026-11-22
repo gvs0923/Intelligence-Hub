@@ -19,7 +19,7 @@ data/
 *.md
 
 # Docs (phase notes kept locally)
-docs/
+/docs/
 
 # Tool caches
 .mypy_cache/
